@@ -72,6 +72,7 @@ def main() -> None:
                 "author": author,
                 "file": filename,
                 "path": path,
+                "bytes": int(item.get("size") or 0),
             }
         )
 
