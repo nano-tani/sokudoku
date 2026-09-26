@@ -25,7 +25,9 @@ const state = {
   timer: null,
   loading: false,
   libraryLength: "all",
-  libraryStatus: "all"
+  libraryStatus: "all",
+  timeBudget: null,
+  recommendedBookId: null
 };
 
 const els = {
@@ -36,6 +38,15 @@ const els = {
   searchResultCount: document.getElementById("searchResultCount"),
   searchResultNote: document.getElementById("searchResultNote"),
   randomBookButton: document.getElementById("randomBookButton"),
+  timeButtons: Array.from(document.querySelectorAll("[data-time]")),
+  timePickerSpeed: document.getElementById("timePickerSpeed"),
+  timeRecommendation: document.getElementById("timeRecommendation"),
+  recommendedTitle: document.getElementById("recommendedTitle"),
+  recommendedAuthor: document.getElementById("recommendedAuthor"),
+  recommendedTime: document.getElementById("recommendedTime"),
+  recommendedStatus: document.getElementById("recommendedStatus"),
+  readRecommendedButton: document.getElementById("readRecommendedButton"),
+  shuffleRecommendedButton: document.getElementById("shuffleRecommendedButton"),
   lengthButtons: Array.from(document.querySelectorAll("[data-length]")),
   statusButtons: Array.from(document.querySelectorAll("[data-status]")),
   authorButtons: Array.from(document.querySelectorAll("[data-author]")),
@@ -269,16 +280,86 @@ function statusLabel(book) {
   return labels[readingStatus(book)];
 }
 
-function readingTimeLabel(book) {
+function readingMinutes(book) {
   const words = estimateWords(book);
-  if (!words) return "時間目安なし";
+  if (!words) return null;
+  return Math.max(1, Math.ceil(words / state.speed));
+}
 
-  const minutes = Math.max(1, Math.ceil(words / state.speed));
+function readingTimeLabel(book) {
+  const minutes = readingMinutes(book);
+  if (!minutes) return "時間目安なし";
   if (minutes < 60) return "約" + minutes + "分";
 
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? "約" + hours + "時間" + rest + "分" : "約" + hours + "時間";
+}
+
+function timeMatches(book) {
+  if (state.timeBudget === null) return true;
+
+  const minutes = readingMinutes(book);
+  if (!minutes) return false;
+
+  if (state.timeBudget === "long") {
+    return minutes > 30;
+  }
+
+  return minutes <= state.timeBudget;
+}
+
+function renderTimeRecommendation(book) {
+  els.timePickerSpeed.textContent = String(state.speed);
+
+  if (!book || state.timeBudget === null) {
+    state.recommendedBookId = null;
+    els.timeRecommendation.hidden = true;
+    return;
+  }
+
+  state.recommendedBookId = book.id;
+  els.recommendedTitle.textContent = book.title;
+  els.recommendedAuthor.textContent = book.author;
+  els.recommendedTime.textContent = readingTimeLabel(book);
+  els.recommendedStatus.textContent = statusLabel(book);
+  els.timeRecommendation.hidden = false;
+}
+
+function chooseTimeRecommendation() {
+  if (state.timeBudget === null) {
+    renderTimeRecommendation(null);
+    return;
+  }
+
+  let candidates = BOOKS.filter(timeMatches);
+  const unread = candidates.filter(function (book) {
+    return readingStatus(book) === "unread";
+  });
+
+  if (unread.length) candidates = unread;
+
+  if (candidates.length > 1 && state.recommendedBookId) {
+    const alternatives = candidates.filter(function (book) {
+      return book.id !== state.recommendedBookId;
+    });
+    if (alternatives.length) candidates = alternatives;
+  }
+
+  if (candidates.length > 1 && state.activeBook) {
+    const alternatives = candidates.filter(function (book) {
+      return book.id !== state.activeBook.id;
+    });
+    if (alternatives.length) candidates = alternatives;
+  }
+
+  if (!candidates.length) {
+    renderTimeRecommendation(null);
+    return;
+  }
+
+  const book = candidates[Math.floor(Math.random() * candidates.length)];
+  renderTimeRecommendation(book);
 }
 
 function filteredBooks() {
@@ -300,7 +381,9 @@ function filteredBooks() {
     const statusMatches = state.libraryStatus === "all" ||
       readingStatus(book) === state.libraryStatus;
 
-    return searchMatches && lengthMatches && statusMatches;
+    const timeMatchesCurrent = timeMatches(book);
+
+    return searchMatches && lengthMatches && statusMatches && timeMatchesCurrent;
   });
 }
 
@@ -311,6 +394,10 @@ function updateFilterButtons() {
   els.statusButtons.forEach(function (button) {
     button.classList.toggle("is-active", button.dataset.status === state.libraryStatus);
   });
+  els.timeButtons.forEach(function (button) {
+    const value = button.dataset.time === "long" ? "long" : Number(button.dataset.time);
+    button.classList.toggle("is-active", value === state.timeBudget);
+  });
 }
 
 function renderBooks() {
@@ -319,7 +406,8 @@ function renderBooks() {
   const hasFilters = Boolean(
     (els.bookSearch.value || "").trim() ||
     state.libraryLength !== "all" ||
-    state.libraryStatus !== "all"
+    state.libraryStatus !== "all" ||
+    state.timeBudget !== null
   );
 
   els.bookList.replaceChildren();
@@ -590,6 +678,8 @@ function setSpeed(speed) {
   els.speedValue.textContent = String(state.speed);
   storageSet("sokudoku:speed", state.speed);
   updateProgressMeta();
+  els.timePickerSpeed.textContent = String(state.speed);
+  if (state.timeBudget !== null) chooseTimeRecommendation();
   renderBooks();
 
   if (state.playing) scheduleNext();
@@ -649,6 +739,29 @@ async function toggleFullscreen() {
 
 els.bookSearch.addEventListener("input", renderBooks);
 
+els.timeButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    state.timeBudget = button.dataset.time === "long"
+      ? "long"
+      : Number(button.dataset.time);
+    els.bookSearch.value = "";
+    state.libraryLength = "all";
+    state.libraryStatus = "all";
+    chooseTimeRecommendation();
+    renderBooks();
+  });
+});
+
+els.readRecommendedButton.addEventListener("click", function () {
+  if (state.recommendedBookId) {
+    loadBook(state.recommendedBookId, true);
+  }
+});
+
+els.shuffleRecommendedButton.addEventListener("click", function () {
+  chooseTimeRecommendation();
+});
+
 els.lengthButtons.forEach(function (button) {
   button.addEventListener("click", function () {
     state.libraryLength = button.dataset.length || "all";
@@ -674,6 +787,8 @@ els.clearSearchButton.addEventListener("click", function () {
   els.bookSearch.value = "";
   state.libraryLength = "all";
   state.libraryStatus = "all";
+  state.timeBudget = null;
+  renderTimeRecommendation(null);
   renderBooks();
   els.bookSearch.focus();
 });
@@ -752,6 +867,7 @@ document.addEventListener("visibilitychange", function () {
 initializeTheme();
 els.speedSlider.value = String(state.speed);
 els.speedValue.textContent = String(state.speed);
+els.timePickerSpeed.textContent = String(state.speed);
 els.groupSlider.value = String(state.groupSize);
 els.groupValue.textContent = String(state.groupSize);
 els.punctuationToggle.checked = state.pauseAtPunctuation;
