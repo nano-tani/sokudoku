@@ -161,7 +161,14 @@ a { color: inherit; }
   font-weight: 700;
 }
 
-.search-box { display: block; margin: 18px 0 12px; }
+.search-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+
+.search-box { display: block; min-width: 0; }
 .search-box input {
   width: 100%;
   height: 44px;
@@ -173,6 +180,32 @@ a { color: inherit; }
   outline: none;
 }
 .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+
+.random-book-button {
+  height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.random-book-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.random-book-button:active { transform: translateY(1px); }
+.random-book-button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
 
 .book-list { display: grid; gap: 7px; }
 
