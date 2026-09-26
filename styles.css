@@ -107,10 +107,10 @@ a { color: inherit; }
 }
 
 .layout {
-  width: min(1440px, calc(100% - 40px));
+  width: min(760px, calc(100% - 40px));
   margin: 28px auto 24px;
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -126,10 +126,9 @@ a { color: inherit; }
 .library-panel {
   border-radius: var(--radius);
   padding: 22px;
-  position: sticky;
-  top: 106px;
-  max-height: calc(100vh - 130px);
-  overflow: auto;
+  position: static;
+  max-height: none;
+  overflow: visible;
 }
 
 .panel-heading,
@@ -544,7 +543,11 @@ a { color: inherit; }
 .source-note summary { cursor: pointer; font-weight: 700; color: var(--text); }
 .source-note a { color: var(--accent); text-underline-offset: 3px; }
 
-.reader-shell { min-width: 0; position: relative; }
+.reader-shell {
+  display: none;
+  min-width: 0;
+  position: relative;
+}
 
 .reader {
   min-height: calc(100vh - 135px);
@@ -589,6 +592,7 @@ body.reading-mode .library-panel {
 }
 
 body.reading-mode .reader-shell {
+  display: block;
   width: 100%;
 }
 
@@ -601,8 +605,7 @@ body.reading-mode .reading-toolbar {
 }
 
 body.reading-mode .site-footer {
-  width: min(1120px, calc(100% - 40px));
-  padding-left: 0;
+  display: none;
 }
 
 .book-meta { gap: 18px; }
@@ -796,9 +799,9 @@ kbd {
 }
 
 .site-footer {
-  width: min(1440px, calc(100% - 40px));
+  width: min(760px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 0 0 28px 314px;
+  padding: 0 0 28px;
   display: flex;
   gap: 18px;
   color: var(--muted);
@@ -824,10 +827,6 @@ kbd {
     width: min(100% - 24px, 760px);
     grid-template-columns: 1fr;
     margin-top: 16px;
-  }
-  .library-panel {
-    position: static;
-    max-height: none;
   }
   .book-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
