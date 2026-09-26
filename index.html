@@ -14,7 +14,7 @@
       <span class="brand-mark">速</span>
       <span>
         <strong>速読文庫</strong>
-        <small>青空文庫を、一点集中で読む。</small>
+        <small>空き時間に合わせて、文学を読む。</small>
       </span>
     </a>
     <div class="header-actions">
@@ -32,6 +32,40 @@
         </div>
         <span id="bookCount" class="count-badge">0</span>
       </div>
+
+      <section class="time-picker-panel" aria-label="読書時間から作品を選ぶ">
+        <div class="time-picker-heading">
+          <div>
+            <p class="eyebrow">QUICK PICK</p>
+            <h2>いま何分ありますか？</h2>
+            <small><span id="timePickerSpeed">350</span>語/分の設定で選びます</small>
+          </div>
+        </div>
+
+        <div class="time-options" id="timeOptions">
+          <button type="button" data-time="5">5分</button>
+          <button type="button" data-time="10">10分</button>
+          <button type="button" data-time="20">20分</button>
+          <button type="button" data-time="30">30分</button>
+          <button type="button" data-time="long">じっくり</button>
+        </div>
+
+        <div id="timeRecommendation" class="time-recommendation" hidden>
+          <div class="recommendation-copy">
+            <span class="recommendation-kicker">この時間なら</span>
+            <strong id="recommendedTitle">—</strong>
+            <small id="recommendedAuthor">—</small>
+            <div class="recommendation-meta">
+              <span id="recommendedTime">—</span>
+              <span id="recommendedStatus">—</span>
+            </div>
+          </div>
+          <div class="recommendation-actions">
+            <button id="readRecommendedButton" class="recommendation-primary" type="button">これを読む</button>
+            <button id="shuffleRecommendedButton" class="recommendation-secondary" type="button">別の1冊</button>
+          </div>
+        </div>
+      </section>
 
       <section class="search-panel" aria-label="作品検索">
         <div class="search-panel-heading">
