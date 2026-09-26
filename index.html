@@ -33,10 +33,16 @@
         <span id="bookCount" class="count-badge">0</span>
       </div>
 
-      <label class="search-box">
-        <span class="sr-only">作品を検索</span>
-        <input id="bookSearch" type="search" placeholder="作品名・著者名で検索" autocomplete="off">
-      </label>
+      <div class="search-tools">
+        <label class="search-box">
+          <span class="sr-only">作品を検索</span>
+          <input id="bookSearch" type="search" placeholder="作品名・著者名で検索" autocomplete="off">
+        </label>
+        <button id="randomBookButton" class="random-book-button" type="button" aria-label="検索結果からランダムに作品を選ぶ">
+          <span aria-hidden="true">↻</span>
+          <span>ランダム</span>
+        </button>
+      </div>
 
       <div id="bookList" class="book-list"></div>
 
