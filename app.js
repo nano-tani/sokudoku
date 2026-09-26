@@ -76,8 +76,38 @@ const els = {
   loadingState: document.getElementById("loadingState"),
   errorState: document.getElementById("errorState"),
   errorMessage: document.getElementById("errorMessage"),
-  retryButton: document.getElementById("retryButton")
+  retryButton: document.getElementById("retryButton"),
+  backToLibraryButton: document.getElementById("backToLibraryButton")
 };
+
+function enterReadingMode(pushHistory) {
+  document.body.classList.add("reading-mode");
+
+  if (pushHistory && location.hash !== "#read") {
+    history.pushState({ reading: true }, "", "#read");
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function leaveReadingMode(useHistory) {
+  stopPlayback();
+  saveProgress();
+  document.body.classList.remove("reading-mode");
+
+  if (useHistory && location.hash === "#read") {
+    history.back();
+  } else if (location.hash === "#read") {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openBookForReading(bookId) {
+  enterReadingMode(true);
+  loadBook(bookId, true);
+}
 
 function bookUrl(book) {
   const path = book.path || ["作品", book.author, book.file].join("/");
@@ -454,7 +484,7 @@ function renderBooks() {
     button.append(label, arrow);
 
     button.addEventListener("click", function () {
-      loadBook(book.id, true);
+      openBookForReading(book.id);
     });
 
     els.bookList.append(button);
@@ -486,7 +516,7 @@ function loadRandomBook() {
   }
 
   const randomIndex = Math.floor(Math.random() * candidates.length);
-  loadBook(candidates[randomIndex].id, true);
+  openBookForReading(candidates[randomIndex].id);
 }
 
 async function loadBook(bookId, restoreProgress) {
@@ -754,7 +784,7 @@ els.timeButtons.forEach(function (button) {
 
 els.readRecommendedButton.addEventListener("click", function () {
   if (state.recommendedBookId) {
-    loadBook(state.recommendedBookId, true);
+    openBookForReading(state.recommendedBookId);
   }
 });
 
@@ -825,6 +855,20 @@ els.progressSlider.addEventListener("input", function () {
 els.themeButton.addEventListener("click", toggleTheme);
 els.fullscreenButton.addEventListener("click", toggleFullscreen);
 
+els.backToLibraryButton.addEventListener("click", function () {
+  leaveReadingMode(true);
+});
+
+window.addEventListener("popstate", function () {
+  if (location.hash === "#read") {
+    document.body.classList.add("reading-mode");
+  } else {
+    document.body.classList.remove("reading-mode");
+    stopPlayback();
+    saveProgress();
+  }
+});
+
 els.retryButton.addEventListener("click", function () {
   if (state.activeBook) loadBook(state.activeBook.id, true);
 });
@@ -883,7 +927,11 @@ async function initializeLibrary() {
   }) || BOOKS[0];
 
   const initialBookId = savedExists ? savedBook : defaultBook.id;
-  loadBook(initialBookId, true);
+  await loadBook(initialBookId, true);
+
+  if (location.hash === "#read") {
+    enterReadingMode(false);
+  }
 }
 
 initializeLibrary();
