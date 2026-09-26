@@ -148,6 +148,43 @@
         <button id="retryButton" class="secondary-button" type="button">再試行</button>
       </div>
 
+      <section id="completionState" class="completion-state" hidden aria-live="polite">
+        <div class="completion-mark" aria-hidden="true">✓</div>
+        <p class="eyebrow">FINISHED</p>
+        <h2>読了しました</h2>
+        <strong id="completedTitle" class="completion-title">—</strong>
+        <span id="completedAuthor" class="completion-author">—</span>
+
+        <div class="completion-stats">
+          <div>
+            <span>読書時間</span>
+            <strong id="completedTime">—</strong>
+          </div>
+          <div>
+            <span>読書速度</span>
+            <strong id="completedSpeed">—</strong>
+          </div>
+        </div>
+
+        <div class="completion-recommendations">
+          <button id="nextShortButton" class="completion-choice completion-choice--primary" type="button">
+            <span>次の5分作品</span>
+            <strong id="nextShortTitle">探しています…</strong>
+            <small id="nextShortAuthor"></small>
+          </button>
+
+          <button id="sameAuthorButton" class="completion-choice" type="button">
+            <span>同じ作者から</span>
+            <strong id="sameAuthorTitle">探しています…</strong>
+            <small id="sameAuthorName"></small>
+          </button>
+        </div>
+
+        <button id="completionBackButton" class="completion-back-button" type="button">
+          ← 作品を選び直す
+        </button>
+      </section>
+
       <article id="reader" class="reader" aria-live="polite">
         <div class="reading-toolbar">
           <button id="backToLibraryButton" class="back-to-library-button" type="button">
