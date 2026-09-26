@@ -28,6 +28,7 @@ const els = {
   bookList: document.getElementById("bookList"),
   bookCount: document.getElementById("bookCount"),
   bookSearch: document.getElementById("bookSearch"),
+  randomBookButton: document.getElementById("randomBookButton"),
   currentAuthor: document.getElementById("currentAuthor"),
   currentTitle: document.getElementById("currentTitle"),
   sourceLink: document.getElementById("sourceLink"),
@@ -198,13 +199,17 @@ function currentGroup() {
   return state.tokens.slice(state.index, state.index + state.groupSize);
 }
 
-function renderBooks(query) {
+function filteredBooks(query) {
   const needle = (query || "").trim().toLocaleLowerCase("ja");
-  const visible = BOOKS.filter(function (book) {
+  return BOOKS.filter(function (book) {
     return !needle ||
       book.title.toLocaleLowerCase("ja").includes(needle) ||
       book.author.toLocaleLowerCase("ja").includes(needle);
   });
+}
+
+function renderBooks(query) {
+  const visible = filteredBooks(query);
 
   els.bookList.replaceChildren();
 
@@ -236,6 +241,23 @@ function renderBooks(query) {
   });
 
   els.bookCount.textContent = String(visible.length);
+  els.randomBookButton.disabled = visible.length === 0;
+}
+
+function loadRandomBook() {
+  let candidates = filteredBooks(els.bookSearch.value);
+
+  if (!candidates.length || state.loading) return;
+
+  if (candidates.length > 1 && state.activeBook) {
+    const alternatives = candidates.filter(function (book) {
+      return book.id !== state.activeBook.id;
+    });
+    if (alternatives.length) candidates = alternatives;
+  }
+
+  const randomIndex = Math.floor(Math.random() * candidates.length);
+  loadBook(candidates[randomIndex].id, true);
 }
 
 async function loadBook(bookId, restoreProgress) {
@@ -484,6 +506,8 @@ async function toggleFullscreen() {
 els.bookSearch.addEventListener("input", function () {
   renderBooks(els.bookSearch.value);
 });
+
+els.randomBookButton.addEventListener("click", loadRandomBook);
 
 els.playButton.addEventListener("click", togglePlayback);
 els.backButton.addEventListener("click", function () { moveByGroups(-1); });
