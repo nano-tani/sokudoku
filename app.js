@@ -29,7 +29,11 @@ const state = {
 const els = {
   bookList: document.getElementById("bookList"),
   bookCount: document.getElementById("bookCount"),
-  bookSearch: document.getElementById("bookSearch"),
+  titleSearch: document.getElementById("titleSearch"),
+  authorSearch: document.getElementById("authorSearch"),
+  clearSearchButton: document.getElementById("clearSearchButton"),
+  searchResultCount: document.getElementById("searchResultCount"),
+  searchResultNote: document.getElementById("searchResultNote"),
   randomBookButton: document.getElementById("randomBookButton"),
   currentAuthor: document.getElementById("currentAuthor"),
   currentTitle: document.getElementById("currentTitle"),
@@ -222,20 +226,36 @@ function currentGroup() {
   return state.tokens.slice(state.index, state.index + state.groupSize);
 }
 
-function filteredBooks(query) {
-  const needle = (query || "").trim().toLocaleLowerCase("ja");
+function filteredBooks() {
+  const titleNeedle = (els.titleSearch.value || "").trim().toLocaleLowerCase("ja");
+  const authorNeedle = (els.authorSearch.value || "").trim().toLocaleLowerCase("ja");
+
   return BOOKS.filter(function (book) {
-    return !needle ||
-      book.title.toLocaleLowerCase("ja").includes(needle) ||
-      book.author.toLocaleLowerCase("ja").includes(needle);
+    const titleMatches = !titleNeedle ||
+      book.title.toLocaleLowerCase("ja").includes(titleNeedle);
+    const authorMatches = !authorNeedle ||
+      book.author.toLocaleLowerCase("ja").includes(authorNeedle);
+
+    return titleMatches && authorMatches;
   });
 }
 
-function renderBooks(query) {
-  const visible = filteredBooks(query);
+function renderBooks() {
+  const visible = filteredBooks();
   const displayBooks = visible.slice(0, 80);
+  const hasFilters = Boolean(
+    (els.titleSearch.value || "").trim() ||
+    (els.authorSearch.value || "").trim()
+  );
 
   els.bookList.replaceChildren();
+
+  if (!visible.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-search";
+    empty.textContent = "該当する作品がありません。作品名や著者名を短くして試してください。";
+    els.bookList.append(empty);
+  }
 
   displayBooks.forEach(function (book) {
     const button = document.createElement("button");
@@ -264,12 +284,20 @@ function renderBooks(query) {
     els.bookList.append(button);
   });
 
-  els.bookCount.textContent = visible.length.toLocaleString("ja-JP");
+  els.bookCount.textContent = BOOKS.length.toLocaleString("ja-JP");
+  els.searchResultCount.textContent = visible.length.toLocaleString("ja-JP") + "件";
+  els.searchResultNote.textContent = !visible.length
+    ? "条件を変えて検索してください"
+    : visible.length > 80
+      ? "先頭80件を表示中"
+      : hasFilters
+        ? "すべて表示中"
+        : "作品名または著者名で絞り込めます";
   els.randomBookButton.disabled = visible.length === 0;
 }
 
 function loadRandomBook() {
-  let candidates = filteredBooks(els.bookSearch.value);
+  let candidates = filteredBooks();
 
   if (!candidates.length || state.loading) return;
 
@@ -298,7 +326,7 @@ async function loadBook(bookId, restoreProgress) {
   els.loadingState.hidden = false;
   els.errorState.hidden = true;
   updateBookMeta();
-  renderBooks(els.bookSearch.value);
+  renderBooks();
 
   try {
     const response = await fetch(bookUrl(book), { cache: "default" });
@@ -527,8 +555,14 @@ async function toggleFullscreen() {
   }
 }
 
-els.bookSearch.addEventListener("input", function () {
-  renderBooks(els.bookSearch.value);
+els.titleSearch.addEventListener("input", renderBooks);
+els.authorSearch.addEventListener("input", renderBooks);
+
+els.clearSearchButton.addEventListener("click", function () {
+  els.titleSearch.value = "";
+  els.authorSearch.value = "";
+  renderBooks();
+  els.titleSearch.focus();
 });
 
 els.randomBookButton.addEventListener("click", loadRandomBook);
@@ -611,7 +645,7 @@ els.punctuationToggle.checked = state.pauseAtPunctuation;
 
 async function initializeLibrary() {
   await loadCatalog();
-  renderBooks("");
+  renderBooks();
 
   const savedBook = storageGet("sokudoku:last-book");
   const savedExists = BOOKS.some(function (book) { return book.id === savedBook; });
