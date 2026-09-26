@@ -19,8 +19,12 @@ jobs:
       - name: Check JavaScript syntax
         run: node --check app.js
 
+      - name: Check catalog builder syntax
+        run: python -m py_compile scripts/build_catalog.py
+
       - name: Check required files
         run: |
           test -s index.html
           test -s styles.css
           test -s app.js
+          test -s scripts/build_catalog.py
