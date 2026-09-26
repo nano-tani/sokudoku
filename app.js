@@ -29,7 +29,11 @@ const state = {
   libraryLength: "all",
   libraryStatus: "all",
   timeBudget: null,
-  recommendedBookId: null
+  recommendedBookId: null,
+  readElapsedMs: 0,
+  playbackStartedAt: null,
+  completionNextShortId: null,
+  completionSameAuthorId: null
 };
 
 const els = {
@@ -79,8 +83,130 @@ const els = {
   errorState: document.getElementById("errorState"),
   errorMessage: document.getElementById("errorMessage"),
   retryButton: document.getElementById("retryButton"),
-  backToLibraryButton: document.getElementById("backToLibraryButton")
+  backToLibraryButton: document.getElementById("backToLibraryButton"),
+  reader: document.getElementById("reader"),
+  completionState: document.getElementById("completionState"),
+  completedTitle: document.getElementById("completedTitle"),
+  completedAuthor: document.getElementById("completedAuthor"),
+  completedTime: document.getElementById("completedTime"),
+  completedSpeed: document.getElementById("completedSpeed"),
+  nextShortButton: document.getElementById("nextShortButton"),
+  nextShortTitle: document.getElementById("nextShortTitle"),
+  nextShortAuthor: document.getElementById("nextShortAuthor"),
+  sameAuthorButton: document.getElementById("sameAuthorButton"),
+  sameAuthorTitle: document.getElementById("sameAuthorTitle"),
+  sameAuthorName: document.getElementById("sameAuthorName"),
+  completionBackButton: document.getElementById("completionBackButton")
 };
+
+function currentReadingMs() {
+  const liveMs = state.playbackStartedAt
+    ? Date.now() - state.playbackStartedAt
+    : 0;
+  return state.readElapsedMs + liveMs;
+}
+
+function formatReadingTime(ms) {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  if (seconds < 60) return seconds + "秒";
+
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+
+  if (minutes < 60) {
+    return rest ? minutes + "分" + rest + "秒" : minutes + "分";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const minuteRest = minutes % 60;
+  return minuteRest ? hours + "時間" + minuteRest + "分" : hours + "時間";
+}
+
+function preferredCandidate(candidates) {
+  if (!candidates.length) return null;
+
+  const unread = candidates.filter(function (book) {
+    return readingStatus(book) === "unread";
+  });
+  const pool = unread.length ? unread : candidates;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function hideCompletionScreen() {
+  els.completionState.hidden = true;
+  els.reader.hidden = false;
+}
+
+function setCompletionChoice(button, titleEl, authorEl, book, emptyText) {
+  if (!book) {
+    button.disabled = true;
+    titleEl.textContent = emptyText;
+    authorEl.textContent = "";
+    return;
+  }
+
+  button.disabled = false;
+  titleEl.textContent = book.title;
+  authorEl.textContent = book.author;
+}
+
+function showCompletionScreen() {
+  if (!state.activeBook) return;
+
+  stopPlayback();
+  storageSet("sokudoku:completed:" + state.activeBook.id, true);
+
+  if (state.tokens.length) {
+    state.index = Math.max(0, state.tokens.length - 1);
+  }
+
+  saveProgress();
+  renderBooks();
+
+  const nextShort = preferredCandidate(
+    BOOKS.filter(function (book) {
+      const minutes = readingMinutes(book);
+      return book.id !== state.activeBook.id &&
+        minutes !== null &&
+        minutes <= 5;
+    })
+  );
+
+  const sameAuthor = preferredCandidate(
+    BOOKS.filter(function (book) {
+      return book.id !== state.activeBook.id &&
+        book.author === state.activeBook.author;
+    })
+  );
+
+  state.completionNextShortId = nextShort ? nextShort.id : null;
+  state.completionSameAuthorId = sameAuthor ? sameAuthor.id : null;
+
+  els.completedTitle.textContent = state.activeBook.title;
+  els.completedAuthor.textContent = state.activeBook.author;
+  els.completedTime.textContent = formatReadingTime(currentReadingMs());
+  els.completedSpeed.textContent = state.speed.toLocaleString("ja-JP") + "語/分";
+
+  setCompletionChoice(
+    els.nextShortButton,
+    els.nextShortTitle,
+    els.nextShortAuthor,
+    nextShort,
+    "5分以内の候補がありません"
+  );
+
+  setCompletionChoice(
+    els.sameAuthorButton,
+    els.sameAuthorTitle,
+    els.sameAuthorName,
+    sameAuthor,
+    "同じ作者の候補がありません"
+  );
+
+  els.reader.hidden = true;
+  els.completionState.hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function enterReadingMode(pushHistory) {
   document.body.classList.add("reading-mode");
@@ -527,10 +653,16 @@ async function loadBook(bookId, restoreProgress) {
 
   saveProgress();
   stopPlayback();
+  hideCompletionScreen();
   state.loading = true;
   state.activeBook = book;
   state.tokens = [];
   state.index = 0;
+  state.readElapsedMs = Math.max(
+    0,
+    Number(storageGet("sokudoku:reading-ms:" + book.id) || 0)
+  );
+  state.playbackStartedAt = null;
 
   els.loadingState.hidden = false;
   els.errorState.hidden = true;
@@ -649,10 +781,7 @@ function scheduleNext() {
     const nextIndex = state.index + state.groupSize;
 
     if (nextIndex >= state.tokens.length) {
-      storageSet("sokudoku:completed:" + state.activeBook.id, true);
-      stopPlayback();
-      saveProgress();
-      renderBooks();
+      showCompletionScreen();
       return;
     }
 
@@ -667,6 +796,7 @@ function startPlayback() {
   if (!state.tokens.length || state.loading) return;
   if (state.index >= state.tokens.length - 1) state.index = 0;
 
+  state.playbackStartedAt = Date.now();
   state.playing = true;
   els.playIcon.textContent = "Ⅱ";
   els.playLabel.textContent = "停止";
@@ -675,6 +805,18 @@ function startPlayback() {
 }
 
 function stopPlayback() {
+  if (state.playbackStartedAt) {
+    state.readElapsedMs += Date.now() - state.playbackStartedAt;
+    state.playbackStartedAt = null;
+
+    if (state.activeBook) {
+      storageSet(
+        "sokudoku:reading-ms:" + state.activeBook.id,
+        Math.round(state.readElapsedMs)
+      );
+    }
+  }
+
   state.playing = false;
   clearTimeout(state.timer);
   state.timer = null;
@@ -700,6 +842,11 @@ function moveByGroups(amount) {
   );
   renderReader();
   saveProgress();
+
+  if (amount > 0 && state.index >= state.tokens.length - 1) {
+    showCompletionScreen();
+    return;
+  }
 
   if (state.playing) scheduleNext();
 }
@@ -730,6 +877,10 @@ function setGroupSize(size) {
 function saveProgress() {
   if (!state.activeBook || !state.tokens.length) return;
   storageSet("sokudoku:progress:" + state.activeBook.id, state.index);
+  storageSet(
+    "sokudoku:reading-ms:" + state.activeBook.id,
+    Math.round(currentReadingMs())
+  );
 }
 
 function seekFromSlider(value) {
@@ -826,6 +977,22 @@ els.clearSearchButton.addEventListener("click", function () {
 });
 
 els.randomBookButton.addEventListener("click", loadRandomBook);
+
+els.nextShortButton.addEventListener("click", function () {
+  if (state.completionNextShortId) {
+    openBookForReading(state.completionNextShortId);
+  }
+});
+
+els.sameAuthorButton.addEventListener("click", function () {
+  if (state.completionSameAuthorId) {
+    openBookForReading(state.completionSameAuthorId);
+  }
+});
+
+els.completionBackButton.addEventListener("click", function () {
+  leaveReadingMode(true);
+});
 
 els.playButton.addEventListener("click", togglePlayback);
 els.backButton.addEventListener("click", function () { moveByGroups(-1); });
