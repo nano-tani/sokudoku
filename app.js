@@ -23,18 +23,22 @@ const state = {
   pauseAtPunctuation: readBoolean("sokudoku:punctuation", true),
   playing: false,
   timer: null,
-  loading: false
+  loading: false,
+  libraryLength: "all",
+  libraryStatus: "all"
 };
 
 const els = {
   bookList: document.getElementById("bookList"),
   bookCount: document.getElementById("bookCount"),
-  titleSearch: document.getElementById("titleSearch"),
-  authorSearch: document.getElementById("authorSearch"),
+  bookSearch: document.getElementById("bookSearch"),
   clearSearchButton: document.getElementById("clearSearchButton"),
   searchResultCount: document.getElementById("searchResultCount"),
   searchResultNote: document.getElementById("searchResultNote"),
   randomBookButton: document.getElementById("randomBookButton"),
+  lengthButtons: Array.from(document.querySelectorAll("[data-length]")),
+  statusButtons: Array.from(document.querySelectorAll("[data-status]")),
+  authorButtons: Array.from(document.querySelectorAll("[data-author]")),
   currentAuthor: document.getElementById("currentAuthor"),
   currentTitle: document.getElementById("currentTitle"),
   sourceLink: document.getElementById("sourceLink"),
@@ -226,17 +230,86 @@ function currentGroup() {
   return state.tokens.slice(state.index, state.index + state.groupSize);
 }
 
+function estimateWords(book) {
+  const bytes = Number(book.bytes || 0);
+  if (!bytes) return null;
+  return Math.max(1, Math.round(bytes / 6));
+}
+
+function lengthClass(book) {
+  const words = estimateWords(book);
+  if (!words) return "unknown";
+  if (words <= 8000) return "short";
+  if (words <= 30000) return "medium";
+  return "long";
+}
+
+function lengthLabel(book) {
+  const labels = {
+    short: "短め",
+    medium: "中くらい",
+    long: "長め",
+    unknown: "長さ不明"
+  };
+  return labels[lengthClass(book)];
+}
+
+function readingStatus(book) {
+  if (readBoolean("sokudoku:completed:" + book.id, false)) return "completed";
+  const progress = Number(storageGet("sokudoku:progress:" + book.id) || 0);
+  return progress > 0 ? "progress" : "unread";
+}
+
+function statusLabel(book) {
+  const labels = {
+    unread: "未読",
+    progress: "途中",
+    completed: "読了"
+  };
+  return labels[readingStatus(book)];
+}
+
+function readingTimeLabel(book) {
+  const words = estimateWords(book);
+  if (!words) return "時間目安なし";
+
+  const minutes = Math.max(1, Math.ceil(words / state.speed));
+  if (minutes < 60) return "約" + minutes + "分";
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? "約" + hours + "時間" + rest + "分" : "約" + hours + "時間";
+}
+
 function filteredBooks() {
-  const titleNeedle = (els.titleSearch.value || "").trim().toLocaleLowerCase("ja");
-  const authorNeedle = (els.authorSearch.value || "").trim().toLocaleLowerCase("ja");
+  const query = (els.bookSearch.value || "").trim().toLocaleLowerCase("ja");
+  const terms = query
+    .split(/[\s　]+/)
+    .map(function (term) { return term.trim(); })
+    .filter(Boolean);
 
   return BOOKS.filter(function (book) {
-    const titleMatches = !titleNeedle ||
-      book.title.toLocaleLowerCase("ja").includes(titleNeedle);
-    const authorMatches = !authorNeedle ||
-      book.author.toLocaleLowerCase("ja").includes(authorNeedle);
+    const haystack = (book.title + " " + book.author).toLocaleLowerCase("ja");
+    const searchMatches = terms.every(function (term) {
+      return haystack.includes(term);
+    });
 
-    return titleMatches && authorMatches;
+    const lengthMatches = state.libraryLength === "all" ||
+      lengthClass(book) === state.libraryLength;
+
+    const statusMatches = state.libraryStatus === "all" ||
+      readingStatus(book) === state.libraryStatus;
+
+    return searchMatches && lengthMatches && statusMatches;
+  });
+}
+
+function updateFilterButtons() {
+  els.lengthButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.length === state.libraryLength);
+  });
+  els.statusButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.status === state.libraryStatus);
   });
 }
 
@@ -244,8 +317,9 @@ function renderBooks() {
   const visible = filteredBooks();
   const displayBooks = visible.slice(0, 80);
   const hasFilters = Boolean(
-    (els.titleSearch.value || "").trim() ||
-    (els.authorSearch.value || "").trim()
+    (els.bookSearch.value || "").trim() ||
+    state.libraryLength !== "all" ||
+    state.libraryStatus !== "all"
   );
 
   els.bookList.replaceChildren();
@@ -253,7 +327,7 @@ function renderBooks() {
   if (!visible.length) {
     const empty = document.createElement("div");
     empty.className = "empty-search";
-    empty.textContent = "該当する作品がありません。作品名や著者名を短くして試してください。";
+    empty.textContent = "該当する作品がありません。検索語や条件を少し広げてみてください。";
     els.bookList.append(empty);
   }
 
@@ -267,14 +341,28 @@ function renderBooks() {
     const label = document.createElement("span");
     const title = document.createElement("strong");
     const author = document.createElement("small");
+    const meta = document.createElement("span");
+    const lengthTag = document.createElement("span");
+    const timeTag = document.createElement("span");
+    const statusTag = document.createElement("span");
     const arrow = document.createElement("span");
 
     title.textContent = book.title;
     author.textContent = book.author;
+
+    meta.className = "book-card-meta";
+    lengthTag.className = "book-tag";
+    timeTag.className = "book-tag";
+    statusTag.className = "book-tag book-tag--status";
+    lengthTag.textContent = lengthLabel(book);
+    timeTag.textContent = readingTimeLabel(book);
+    statusTag.textContent = statusLabel(book);
+    meta.append(lengthTag, timeTag, statusTag);
+
     arrow.className = "book-arrow";
     arrow.textContent = "›";
 
-    label.append(title, author);
+    label.append(title, author, meta);
     button.append(label, arrow);
 
     button.addEventListener("click", function () {
@@ -287,13 +375,14 @@ function renderBooks() {
   els.bookCount.textContent = BOOKS.length.toLocaleString("ja-JP");
   els.searchResultCount.textContent = visible.length.toLocaleString("ja-JP") + "件";
   els.searchResultNote.textContent = !visible.length
-    ? "条件を変えて検索してください"
+    ? "条件を変えてみてください"
     : visible.length > 80
       ? "先頭80件を表示中"
       : hasFilters
-        ? "すべて表示中"
-        : "作品名または著者名で絞り込めます";
+        ? "条件に合う作品です"
+        : "検索・長さ・読書状況で絞れます";
   els.randomBookButton.disabled = visible.length === 0;
+  updateFilterButtons();
 }
 
 function loadRandomBook() {
@@ -440,8 +529,10 @@ function scheduleNext() {
     const nextIndex = state.index + state.groupSize;
 
     if (nextIndex >= state.tokens.length) {
+      storageSet("sokudoku:completed:" + state.activeBook.id, true);
       stopPlayback();
       saveProgress();
+      renderBooks();
       return;
     }
 
@@ -499,6 +590,7 @@ function setSpeed(speed) {
   els.speedValue.textContent = String(state.speed);
   storageSet("sokudoku:speed", state.speed);
   updateProgressMeta();
+  renderBooks();
 
   if (state.playing) scheduleNext();
 }
@@ -555,14 +647,35 @@ async function toggleFullscreen() {
   }
 }
 
-els.titleSearch.addEventListener("input", renderBooks);
-els.authorSearch.addEventListener("input", renderBooks);
+els.bookSearch.addEventListener("input", renderBooks);
+
+els.lengthButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    state.libraryLength = button.dataset.length || "all";
+    renderBooks();
+  });
+});
+
+els.statusButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    state.libraryStatus = button.dataset.status || "all";
+    renderBooks();
+  });
+});
+
+els.authorButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    els.bookSearch.value = button.dataset.author || "";
+    renderBooks();
+  });
+});
 
 els.clearSearchButton.addEventListener("click", function () {
-  els.titleSearch.value = "";
-  els.authorSearch.value = "";
+  els.bookSearch.value = "";
+  state.libraryLength = "all";
+  state.libraryStatus = "all";
   renderBooks();
-  els.titleSearch.focus();
+  els.bookSearch.focus();
 });
 
 els.randomBookButton.addEventListener("click", loadRandomBook);
