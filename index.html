@@ -33,16 +33,32 @@
         <span id="bookCount" class="count-badge">0</span>
       </div>
 
-      <div class="search-tools">
-        <label class="search-box">
-          <span class="sr-only">作品を検索</span>
-          <input id="bookSearch" type="search" placeholder="作品名・著者名で検索" autocomplete="off">
+      <section class="search-panel" aria-label="作品検索">
+        <div class="search-panel-heading">
+          <strong>作品を探す</strong>
+          <button id="clearSearchButton" class="clear-search-button" type="button">条件をクリア</button>
+        </div>
+
+        <label class="search-field">
+          <span>作品名</span>
+          <input id="titleSearch" type="search" placeholder="例：走れメロス" autocomplete="off">
         </label>
-        <button id="randomBookButton" class="random-book-button" type="button" aria-label="検索結果からランダムに作品を選ぶ">
+
+        <label class="search-field">
+          <span>著者名</span>
+          <input id="authorSearch" type="search" placeholder="例：太宰治" autocomplete="off">
+        </label>
+
+        <button id="randomBookButton" class="random-book-button" type="button" aria-label="現在の検索条件からランダムに作品を選ぶ">
           <span aria-hidden="true">↻</span>
-          <span>ランダム</span>
+          <span>この条件からランダム</span>
         </button>
-      </div>
+
+        <div class="search-result-summary" aria-live="polite">
+          <strong id="searchResultCount">0件</strong>
+          <span id="searchResultNote">作品名または著者名で絞り込めます</span>
+        </div>
+      </section>
 
       <div id="bookList" class="book-list"></div>
 
