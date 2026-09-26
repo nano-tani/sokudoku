@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4efe6">
+  <meta name="description" content="青空文庫の名作を、単語・短いまとまり単位で読む速読用ブラウザ。">
+  <title>速読文庫</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="速読文庫 ホーム">
+      <span class="brand-mark">速</span>
+      <span>
+        <strong>速読文庫</strong>
+        <small>青空文庫を、一点集中で読む。</small>
+      </span>
+    </a>
+    <div class="header-actions">
+      <button id="themeButton" class="icon-button" type="button" aria-label="配色を切り替える">◐</button>
+      <button id="fullscreenButton" class="icon-button" type="button" aria-label="全画面表示">⛶</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="library-panel" aria-label="作品一覧">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">LIBRARY</p>
+          <h1>読む作品</h1>
+        </div>
+        <span id="bookCount" class="count-badge">0</span>
+      </div>
+
+      <label class="search-box">
+        <span class="sr-only">作品を検索</span>
+        <input id="bookSearch" type="search" placeholder="作品名・著者名で検索" autocomplete="off">
+      </label>
+
+      <div id="bookList" class="book-list"></div>
+
+      <details class="source-note">
+        <summary>本文データについて</summary>
+        <p>
+          青空文庫の公開作品を、UTF-8化した非公式ミラー経由で読み込みます。
+          作品の権利条件は各作品の図書カード・青空文庫の案内を確認してください。
+        </p>
+        <a href="https://www.aozora.gr.jp/" target="_blank" rel="noreferrer">青空文庫を開く ↗</a>
+      </details>
+    </aside>
+
+    <section class="reader-shell">
+      <div id="loadingState" class="loading-state" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <p>本文を読み込んでいます</p>
+      </div>
+
+      <div id="errorState" class="error-state" hidden>
+        <strong>本文を読み込めませんでした。</strong>
+        <p id="errorMessage">通信状態を確認して、もう一度試してください。</p>
+        <button id="retryButton" class="secondary-button" type="button">再試行</button>
+      </div>
+
+      <article id="reader" class="reader" aria-live="polite">
+        <div class="book-meta">
+          <div>
+            <p id="currentAuthor" class="eyebrow">太宰治</p>
+            <h2 id="currentTitle">走れメロス</h2>
+          </div>
+          <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noreferrer">本文データ ↗</a>
+        </div>
+
+        <div class="focus-stage" id="focusStage">
+          <div id="previousWord" class="context-word context-word--previous" aria-hidden="true"></div>
+          <div id="currentWord" class="focus-word">読み込み中</div>
+          <div id="nextWord" class="context-word context-word--next" aria-hidden="true"></div>
+        </div>
+
+        <div class="progress-area">
+          <input id="progressSlider" class="progress-slider" type="range" min="0" max="1000" value="0" aria-label="読書位置">
+          <div class="progress-meta">
+            <span id="positionText">0 / 0語</span>
+            <span id="percentText">0%</span>
+            <span id="remainingText">残り --分</span>
+          </div>
+        </div>
+
+        <div class="transport" aria-label="再生操作">
+          <button id="backButton" class="transport-button" type="button" aria-label="前へ">−1</button>
+          <button id="playButton" class="play-button" type="button" aria-label="再生">
+            <span id="playIcon" aria-hidden="true">▶</span>
+            <span id="playLabel">開始</span>
+          </button>
+          <button id="forwardButton" class="transport-button" type="button" aria-label="次へ">+1</button>
+        </div>
+
+        <div class="settings-grid">
+          <section class="setting-card">
+            <div class="setting-title">
+              <div>
+                <span>速度</span>
+                <strong><span id="speedValue">350</span> 語/分</strong>
+              </div>
+              <button id="resetSpeedButton" class="text-button" type="button">標準</button>
+            </div>
+            <input id="speedSlider" type="range" min="100" max="1200" step="25" value="350" aria-label="表示速度">
+            <div class="range-labels"><span>100</span><span>1200</span></div>
+          </section>
+
+          <section class="setting-card">
+            <div class="setting-title">
+              <div>
+                <span>一度に表示</span>
+                <strong><span id="groupValue">1</span> 語</strong>
+              </div>
+            </div>
+            <input id="groupSlider" type="range" min="1" max="5" step="1" value="1" aria-label="一度に表示する語数">
+            <div class="range-labels"><span>1語</span><span>5語</span></div>
+          </section>
+        </div>
+
+        <label class="toggle-row">
+          <span>
+            <strong>句読点で少し間を置く</strong>
+            <small>「、」「。」などで表示時間を自動調整します。</small>
+          </span>
+          <input id="punctuationToggle" type="checkbox" checked>
+        </label>
+
+        <div class="keyboard-help" aria-label="キーボード操作">
+          <span><kbd>Space</kbd> 開始 / 停止</span>
+          <span><kbd>←</kbd><kbd>→</kbd> 前 / 次</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> 速度変更</span>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>本文出典: <a href="https://www.aozora.gr.jp/" target="_blank" rel="noreferrer">青空文庫</a></p>
+    <p>本文取得: <a href="https://github.com/P4suta/aozorabunko_text" target="_blank" rel="noreferrer">aozorabunko_text</a>（非公式ミラー）</p>
+  </footer>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
