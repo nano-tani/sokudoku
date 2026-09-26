@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -24,13 +25,15 @@ LEGACY_IDS = {
 
 
 def fetch_tree() -> dict:
-    request = Request(
-        TREE_URL,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "nano-tani-sokudoku-catalog-builder",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "nano-tani-sokudoku-catalog-builder",
+    }
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
+
+    request = Request(TREE_URL, headers=headers)
     with urlopen(request, timeout=60) as response:
         return json.load(response)
 
