@@ -115,8 +115,7 @@ function cleanAozoraText(rawText) {
   }
 
   return lines.join("\n")
-    .replace(/［＃[^］]*］/g, "")
-    .replace(/※(?=［＃)/g, "")
+    .replace(/※?［＃[^］]*］/g, "")
     .replace(/｜/g, "")
     .replace(/《[^》]*》/g, "")
     .replace(/[ \t]+/g, " ")
