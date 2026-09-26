@@ -35,28 +35,58 @@
 
       <section class="search-panel" aria-label="作品検索">
         <div class="search-panel-heading">
-          <strong>作品を探す</strong>
-          <button id="clearSearchButton" class="clear-search-button" type="button">条件をクリア</button>
+          <div>
+            <strong>何を読みますか？</strong>
+            <small>作品名でも著者名でも検索できます</small>
+          </div>
+          <button id="clearSearchButton" class="clear-search-button" type="button">リセット</button>
         </div>
 
-        <label class="search-field">
-          <span>作品名</span>
-          <input id="titleSearch" type="search" placeholder="例：走れメロス" autocomplete="off">
+        <label class="main-search-box">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <span class="sr-only">作品名・著者名で検索</span>
+          <input id="bookSearch" type="search" placeholder="作品名・著者名で検索" autocomplete="off">
         </label>
 
-        <label class="search-field">
-          <span>著者名</span>
-          <input id="authorSearch" type="search" placeholder="例：太宰治" autocomplete="off">
-        </label>
+        <div class="filter-group">
+          <span class="filter-label">長さ</span>
+          <div class="filter-chips" id="lengthFilters">
+            <button class="filter-chip is-active" type="button" data-length="all">すべて</button>
+            <button class="filter-chip" type="button" data-length="short">短め</button>
+            <button class="filter-chip" type="button" data-length="medium">中くらい</button>
+            <button class="filter-chip" type="button" data-length="long">長め</button>
+          </div>
+        </div>
 
-        <button id="randomBookButton" class="random-book-button" type="button" aria-label="現在の検索条件からランダムに作品を選ぶ">
+        <div class="filter-group">
+          <span class="filter-label">読書状況</span>
+          <div class="filter-chips" id="statusFilters">
+            <button class="filter-chip is-active" type="button" data-status="all">すべて</button>
+            <button class="filter-chip" type="button" data-status="unread">未読</button>
+            <button class="filter-chip" type="button" data-status="progress">途中</button>
+            <button class="filter-chip" type="button" data-status="completed">読了</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">作家から選ぶ</span>
+          <div class="author-chips">
+            <button type="button" data-author="太宰治">太宰治</button>
+            <button type="button" data-author="芥川龍之介">芥川龍之介</button>
+            <button type="button" data-author="夏目漱石">夏目漱石</button>
+            <button type="button" data-author="宮沢賢治">宮沢賢治</button>
+            <button type="button" data-author="森鴎外">森鴎外</button>
+          </div>
+        </div>
+
+        <button id="randomBookButton" class="random-book-button" type="button" aria-label="現在の条件からランダムに作品を選ぶ">
           <span aria-hidden="true">↻</span>
-          <span>この条件からランダム</span>
+          <span>この条件からランダムで読む</span>
         </button>
 
         <div class="search-result-summary" aria-live="polite">
           <strong id="searchResultCount">0件</strong>
-          <span id="searchResultNote">作品名または著者名で絞り込めます</span>
+          <span id="searchResultNote">条件に合う作品を表示します</span>
         </div>
       </section>
 
