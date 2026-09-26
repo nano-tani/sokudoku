@@ -2,15 +2,17 @@
 
 const MIRROR_ROOT = "https://raw.githubusercontent.com/P4suta/aozorabunko_text/master";
 
-const BOOKS = [
-  { id: "meros", title: "走れメロス", author: "太宰治", file: "走れメロス.txt" },
-  { id: "ningen", title: "人間失格", author: "太宰治", file: "人間失格.txt" },
-  { id: "shayo", title: "斜陽", author: "太宰治", file: "斜陽.txt" },
-  { id: "kokoro", title: "こころ", author: "夏目漱石", file: "こころ.txt" },
-  { id: "botchan", title: "坊っちゃん", author: "夏目漱石", file: "坊っちゃん.txt" },
-  { id: "neko", title: "吾輩は猫である", author: "夏目漱石", file: "吾輩は猫である.txt" },
-  { id: "goshu", title: "セロ弾きのゴーシュ", author: "宮沢賢治", file: "セロ弾きのゴーシュ.txt" }
+const FALLBACK_BOOKS = [
+  { id: "meros", title: "走れメロス", author: "太宰治", file: "走れメロス.txt", path: "作品/太宰治/走れメロス.txt" },
+  { id: "ningen", title: "人間失格", author: "太宰治", file: "人間失格.txt", path: "作品/太宰治/人間失格.txt" },
+  { id: "shayo", title: "斜陽", author: "太宰治", file: "斜陽.txt", path: "作品/太宰治/斜陽.txt" },
+  { id: "kokoro", title: "こころ", author: "夏目漱石", file: "こころ.txt", path: "作品/夏目漱石/こころ.txt" },
+  { id: "botchan", title: "坊っちゃん", author: "夏目漱石", file: "坊っちゃん.txt", path: "作品/夏目漱石/坊っちゃん.txt" },
+  { id: "neko", title: "吾輩は猫である", author: "夏目漱石", file: "吾輩は猫である.txt", path: "作品/夏目漱石/吾輩は猫である.txt" },
+  { id: "goshu", title: "セロ弾きのゴーシュ", author: "宮沢賢治", file: "セロ弾きのゴーシュ.txt", path: "作品/宮沢賢治/セロ弾きのゴーシュ.txt" }
 ];
+
+let BOOKS = FALLBACK_BOOKS.slice();
 
 const state = {
   activeBook: null,
@@ -59,10 +61,31 @@ const els = {
 };
 
 function bookUrl(book) {
-  return MIRROR_ROOT + "/" +
-    encodeURIComponent("作品") + "/" +
-    encodeURIComponent(book.author) + "/" +
-    encodeURIComponent(book.file);
+  const path = book.path || ["作品", book.author, book.file].join("/");
+  const encodedPath = path
+    .split("/")
+    .map(function (part) { return encodeURIComponent(part); })
+    .join("/");
+  return MIRROR_ROOT + "/" + encodedPath;
+}
+
+async function loadCatalog() {
+  try {
+    const response = await fetch("./books.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+
+    const payload = await response.json();
+    const books = Array.isArray(payload) ? payload : payload.books;
+
+    if (!Array.isArray(books) || books.length < 1000) {
+      throw new Error("作品一覧が不完全です");
+    }
+
+    BOOKS = books;
+  } catch (error) {
+    console.warn("Full catalog unavailable. Using fallback books.", error);
+    BOOKS = FALLBACK_BOOKS.slice();
+  }
 }
 
 function storageGet(key) {
@@ -210,10 +233,11 @@ function filteredBooks(query) {
 
 function renderBooks(query) {
   const visible = filteredBooks(query);
+  const displayBooks = visible.slice(0, 80);
 
   els.bookList.replaceChildren();
 
-  visible.forEach(function (book) {
+  displayBooks.forEach(function (book) {
     const button = document.createElement("button");
     button.className = "book-button";
     button.type = "button";
@@ -240,7 +264,7 @@ function renderBooks(query) {
     els.bookList.append(button);
   });
 
-  els.bookCount.textContent = String(visible.length);
+  els.bookCount.textContent = visible.length.toLocaleString("ja-JP");
   els.randomBookButton.disabled = visible.length === 0;
 }
 
@@ -584,11 +608,19 @@ els.speedValue.textContent = String(state.speed);
 els.groupSlider.value = String(state.groupSize);
 els.groupValue.textContent = String(state.groupSize);
 els.punctuationToggle.checked = state.pauseAtPunctuation;
-renderBooks("");
 
-const savedBook = storageGet("sokudoku:last-book");
-const initialBook = BOOKS.some(function (book) { return book.id === savedBook; })
-  ? savedBook
-  : "meros";
+async function initializeLibrary() {
+  await loadCatalog();
+  renderBooks("");
 
-loadBook(initialBook, true);
+  const savedBook = storageGet("sokudoku:last-book");
+  const savedExists = BOOKS.some(function (book) { return book.id === savedBook; });
+  const defaultBook = BOOKS.find(function (book) {
+    return book.author === "太宰治" && book.title === "走れメロス";
+  }) || BOOKS[0];
+
+  const initialBookId = savedExists ? savedBook : defaultBook.id;
+  loadBook(initialBookId, true);
+}
+
+initializeLibrary();
