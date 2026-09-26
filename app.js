@@ -1,6 +1,8 @@
 "use strict";
 
 const MIRROR_ROOT = "https://raw.githubusercontent.com/P4suta/aozorabunko_text/master";
+const DEFAULT_SPEED = 450;
+const DEFAULT_GROUP_SIZE = 2;
 
 const FALLBACK_BOOKS = [
   { id: "meros", title: "走れメロス", author: "太宰治", file: "走れメロス.txt", path: "作品/太宰治/走れメロス.txt" },
@@ -18,8 +20,8 @@ const state = {
   activeBook: null,
   tokens: [],
   index: 0,
-  speed: readNumber("sokudoku:speed", 350, 100, 1200),
-  groupSize: readNumber("sokudoku:group-size", 1, 1, 5),
+  speed: readNumber("sokudoku:speed", DEFAULT_SPEED, 100, 1200),
+  groupSize: readNumber("sokudoku:group-size", DEFAULT_GROUP_SIZE, 1, 5),
   pauseAtPunctuation: readBoolean("sokudoku:punctuation", true),
   playing: false,
   timer: null,
@@ -834,7 +836,7 @@ els.speedSlider.addEventListener("input", function () {
 });
 
 els.resetSpeedButton.addEventListener("click", function () {
-  setSpeed(350);
+  setSpeed(DEFAULT_SPEED);
 });
 
 els.groupSlider.addEventListener("input", function () {
