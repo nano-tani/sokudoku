@@ -5,6 +5,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    - cron: "17 21 * * *"
 
 permissions:
   contents: read
@@ -20,12 +22,15 @@ jobs:
     if: github.event.repository.has_pages == true
     environment:
       name: github-pages
-      url: \${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Build Aozora catalog
+        run: python scripts/build_catalog.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
