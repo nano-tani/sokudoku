@@ -556,6 +556,8 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
 }
+
+.reader[hidden] { display: none; }
 .completion-state {
   min-height: calc(100vh - 135px);
   padding: 44px clamp(22px, 5vw, 64px);
