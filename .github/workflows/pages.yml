@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Build Aozora catalog
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/build_catalog.py
 
       - name: Setup Pages
