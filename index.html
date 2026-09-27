@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4efe6">
-  <meta name="description" content="青空文庫の著作権切れ作品を、5分・10分など空き時間から選んで読める無料の速読Webアプリ。ルビ表示、100〜1200語/分、1〜5語表示に対応。">
+  <meta name="description" content="青空文庫の著作権切れ作品を、5分・10分など空き時間から選んで読める無料の速読Webアプリ。ルビ表示、100〜1200語/分、自然な文節表示に対応。">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <meta name="author" content="速読文庫">
   <meta name="application-name" content="速読文庫">
@@ -268,12 +268,12 @@
           <section class="setting-card">
             <div class="setting-title">
               <div>
-                <span>一度に表示</span>
-                <strong><span id="groupValue">2</span> 語</strong>
+                <span>文章のまとまり</span>
+                <strong id="groupValue">標準</strong>
               </div>
             </div>
-            <input id="groupSlider" type="range" min="1" max="5" step="1" value="2" aria-label="一度に表示する語数">
-            <div class="range-labels"><span>1語</span><span>5語</span></div>
+            <input id="groupSlider" type="range" min="1" max="3" step="1" value="2" aria-label="文章のまとまりの長さ">
+            <div class="range-labels"><span>短め</span><span>標準</span><span>長め</span></div>
           </section>
         </div>
 
