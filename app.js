@@ -725,12 +725,32 @@ async function loadBook(bookId, restoreProgress) {
   }
 }
 
+function safeAozoraCardUrl(value) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value, "https://www.aozora.gr.jp/");
+    if (
+      url.protocol === "https:" &&
+      url.hostname === "www.aozora.gr.jp"
+    ) {
+      return url.href;
+    }
+  } catch (_) {
+  }
+
+  return null;
+}
+
 function updateBookMeta() {
   if (!state.activeBook) return;
+
+  const cardUrl = safeAozoraCardUrl(state.activeBook.cardUrl);
+
   els.currentAuthor.textContent = state.activeBook.author;
   els.currentTitle.textContent = state.activeBook.title;
-  els.sourceLink.href = state.activeBook.cardUrl || bookUrl(state.activeBook);
-  els.sourceLink.textContent = state.activeBook.cardUrl
+  els.sourceLink.href = cardUrl || bookUrl(state.activeBook);
+  els.sourceLink.textContent = cardUrl
     ? "青空文庫の図書カード ↗"
     : "本文データ ↗";
 }
