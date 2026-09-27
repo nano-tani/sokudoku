@@ -535,16 +535,16 @@ function shouldEndPhrase(tokens, start, end, visibleChars) {
   return !mustAttach;
 }
 
-function rebuildDisplayGroups() {
+function buildFallbackGroups(tokens, startIndex, endIndex) {
   const groups = [];
-  const tokens = state.tokens;
-  let start = 0;
+  let start = startIndex === undefined ? 0 : startIndex;
+  const limit = endIndex === undefined ? tokens.length : endIndex;
 
-  while (start < tokens.length) {
+  while (start < limit) {
     let end = start;
     let visibleChars = 0;
 
-    while (end < tokens.length) {
+    while (end < limit) {
       visibleChars += tokenVisibleLength(tokens[end]);
       end += 1;
 
@@ -552,11 +552,154 @@ function rebuildDisplayGroups() {
     }
 
     if (end <= start) end = start + 1;
-    groups.push({ start: start, end: Math.min(end, tokens.length) });
+    groups.push({ start: start, end: Math.min(end, limit) });
     start = end;
   }
 
-  state.displayGroups = groups;
+  return groups;
+}
+
+function buildBudouxBaseGroups(tokens) {
+  const parser = window.BudouXJapaneseParser;
+  if (!parser || typeof parser.parseBoundaries !== "function") return null;
+  if (!tokens.length) return [];
+
+  const sentence = tokens.map(function (token) {
+    return token.text;
+  }).join("");
+
+  if (!sentence) return [];
+
+  try {
+    const rawBoundaries = parser.parseBoundaries(sentence);
+    const tokenEnds = [];
+    let charEnd = 0;
+
+    tokens.forEach(function (token, index) {
+      charEnd += token.text.length;
+      tokenEnds.push({ index: index + 1, charEnd: charEnd });
+    });
+
+    const groupEnds = new Set();
+    let tokenCursor = 0;
+
+    rawBoundaries.forEach(function (boundary) {
+      while (
+        tokenCursor < tokenEnds.length &&
+        tokenEnds[tokenCursor].charEnd < boundary
+      ) {
+        tokenCursor += 1;
+      }
+
+      if (tokenCursor < tokenEnds.length) {
+        groupEnds.add(tokenEnds[tokenCursor].index);
+      }
+    });
+
+    // 句点・読点・改行は、BudouXの判定に関係なく表示境界として尊重する。
+    tokens.forEach(function (token, index) {
+      if (isHardPhraseEnd(token) || isSoftPhraseEnd(token)) {
+        groupEnds.add(index + 1);
+      }
+    });
+    groupEnds.add(tokens.length);
+
+    const sortedEnds = Array.from(groupEnds)
+      .filter(function (value) { return value > 0 && value <= tokens.length; })
+      .sort(function (a, b) { return a - b; });
+
+    if (tokens.length > 10 && sortedEnds.length <= 1) return null;
+
+    const groups = [];
+    let start = 0;
+
+    sortedEnds.forEach(function (groupEnd) {
+      if (groupEnd <= start) return;
+      groups.push({ start: start, end: groupEnd });
+      start = groupEnd;
+    });
+
+    if (start < tokens.length) {
+      groups.push({ start: start, end: tokens.length });
+    }
+
+    return groups;
+  } catch (error) {
+    console.warn("BudouX phrase segmentation failed. Falling back.", error);
+    return null;
+  }
+}
+
+function groupVisibleLength(group) {
+  let length = 0;
+  for (let i = group.start; i < group.end; i += 1) {
+    length += tokenVisibleLength(state.tokens[i]);
+  }
+  return length;
+}
+
+function splitBudouxGroupsForShort(baseGroups) {
+  const result = [];
+
+  baseGroups.forEach(function (group) {
+    if (groupVisibleLength(group) <= phraseConfig().maxChars) {
+      result.push(group);
+      return;
+    }
+
+    const split = buildFallbackGroups(state.tokens, group.start, group.end);
+    result.push.apply(result, split);
+  });
+
+  return result;
+}
+
+function mergeBudouxGroupsForLong(baseGroups) {
+  const result = [];
+  const maxChars = phraseConfig().maxChars;
+  let current = null;
+
+  baseGroups.forEach(function (group) {
+    if (!current) {
+      current = { start: group.start, end: group.end };
+      return;
+    }
+
+    const previousToken = state.tokens[current.end - 1];
+    const candidate = { start: current.start, end: group.end };
+    const canMerge =
+      !isHardPhraseEnd(previousToken) &&
+      !isSoftPhraseEnd(previousToken) &&
+      groupVisibleLength(candidate) <= maxChars;
+
+    if (canMerge) {
+      current.end = group.end;
+    } else {
+      result.push(current);
+      current = { start: group.start, end: group.end };
+    }
+  });
+
+  if (current) result.push(current);
+  return result;
+}
+
+function rebuildDisplayGroups() {
+  const tokens = state.tokens;
+  const budouxGroups = buildBudouxBaseGroups(tokens);
+
+  if (!budouxGroups) {
+    state.displayGroups = buildFallbackGroups(tokens);
+    return;
+  }
+
+  if (state.groupSize === 1) {
+    state.displayGroups = splitBudouxGroupsForShort(budouxGroups);
+  } else if (state.groupSize === 3) {
+    state.displayGroups = mergeBudouxGroupsForLong(budouxGroups);
+  } else {
+    state.displayGroups = budouxGroups;
+  }
 }
 
 function displayGroupIndexForToken(tokenIndex) {
