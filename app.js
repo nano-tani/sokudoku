@@ -1,6 +1,7 @@
 "use strict";
 
 const MIRROR_ROOT = "https://raw.githubusercontent.com/P4suta/aozorabunko_text/master";
+const CANONICAL_CATALOG_URL = "https://nano-tani.github.io/sokudoku/books.json";
 const DEFAULT_SPEED = 450;
 const DEFAULT_GROUP_SIZE = 2;
 
@@ -246,29 +247,44 @@ function bookUrl(book) {
   return MIRROR_ROOT + "/" + encodedPath;
 }
 
+function validateCatalogPayload(payload) {
+  const books = payload && Array.isArray(payload.books) ? payload.books : null;
+
+  if (
+    !payload ||
+    payload.rightsPolicy !== "public-domain-only" ||
+    !Array.isArray(books) ||
+    books.length < 1 ||
+    books.some(function (book) { return book.rights !== "public-domain"; })
+  ) {
+    throw new Error("著作権確認済みの作品一覧ではありません");
+  }
+
+  return books;
+}
+
+async function fetchCatalog(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error("HTTP " + response.status);
+  return validateCatalogPayload(await response.json());
+}
+
 async function loadCatalog() {
   try {
-    const response = await fetch("./books.json", { cache: "no-store" });
-    if (!response.ok) throw new Error("HTTP " + response.status);
-
-    const payload = await response.json();
-    const books = payload && Array.isArray(payload.books) ? payload.books : null;
-
-    if (
-      !payload ||
-      payload.rightsPolicy !== "public-domain-only" ||
-      !Array.isArray(books) ||
-      books.length < 1 ||
-      books.some(function (book) { return book.rights !== "public-domain"; })
-    ) {
-      throw new Error("著作権確認済みの作品一覧ではありません");
-    }
-
-    BOOKS = books;
-  } catch (error) {
-    console.warn("Rights-verified catalog unavailable. Using safe fallback books.", error);
-    BOOKS = FALLBACK_BOOKS.slice();
+    BOOKS = await fetchCatalog("./books.json");
+    return;
+  } catch (localError) {
+    console.warn("Local catalog unavailable. Trying canonical catalog.", localError);
   }
+
+  try {
+    BOOKS = await fetchCatalog(CANONICAL_CATALOG_URL);
+    return;
+  } catch (remoteError) {
+    console.warn("Canonical catalog unavailable. Using safe fallback books.", remoteError);
+  }
+
+  BOOKS = FALLBACK_BOOKS.slice();
 }
 
 function storageGet(key) {
