@@ -58,6 +58,34 @@ python -m http.server 8000
 
 \`file://\` で直接開くと、ブラウザの制限で外部本文を取得できない場合があります。
 
+
+## FTPでそのまま公開する
+
+このリポジトリは静的サイトなので、一般的なレンタルサーバーへそのままFTPアップロードして使えます。
+
+必要なサーバー機能:
+- HTML/CSS/JavaScriptを配信できること
+- HTTPS推奨
+- PHP / Node.js / Python / DB / cron は不要
+
+公開方法:
+1. このリポジトリをZIPでダウンロードして展開
+2. ルート直下の `index.html`、`styles.css`、`app.js` などを公開ディレクトリへFTPアップロード
+3. ブラウザでそのURLを開く
+
+`books.json` がFTP先に存在する場合はローカル版を優先します。
+存在しない場合は、GitHub Pages上の著作権確認済みカタログ
+`https://nano-tani.github.io/sokudoku/books.json`
+を自動取得します。
+
+そのため、GitHub Actionsや `scripts/build_catalog.py` をFTP先で実行する必要はありません。
+ローカル・リモートのカタログが両方利用できない場合だけ、コード内の安全な7作品へ縮退します。
+
+### 自前サーバーへ完全にコピーしたい場合
+
+外部のカタログ取得にも依存したくない場合は、GitHub Pagesで生成済みの `books.json` も
+`index.html` と同じディレクトリへ置いてください。アプリは自動的にローカル版を優先します。
+
 ## GitHub Pages
 
 \`.github/workflows/pages.yml\` を同梱しています。
