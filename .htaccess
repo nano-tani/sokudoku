@@ -39,6 +39,9 @@ Options -Indexes
 <IfModule mod_mime.c>
   AddType text/javascript .js
   AddType application/json .json
+  AddType application/manifest+json .webmanifest
+  AddType image/svg+xml .svg
+  AddType application/xml .xml
 </IfModule>
 
 # 隠しファイルや開発用ファイルをWebから見せない
@@ -53,4 +56,7 @@ Options -Indexes
   ExpiresByType text/css "access plus 1 day"
   ExpiresByType text/javascript "access plus 1 day"
   ExpiresByType application/json "access plus 30 minutes"
+  ExpiresByType application/manifest+json "access plus 1 day"
+  ExpiresByType image/svg+xml "access plus 7 days"
+  ExpiresByType application/xml "access plus 1 hour"
 </IfModule>
