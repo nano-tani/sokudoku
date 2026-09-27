@@ -28,9 +28,6 @@ Options -Indexes
   # この静的サイトで不要なブラウザ機能を無効化
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
 
-  # HTTPS運用時のみ有効。サブドメイン全体には波及させない。
-  Header always set Strict-Transport-Security "max-age=31536000"
-
   # 読書アプリが必要とする通信先のみ許可。
   # - self: index.html / app.js / styles.css / local books.json
   # - raw.githubusercontent.com: 青空文庫本文ミラー
