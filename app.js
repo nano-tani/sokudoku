@@ -24,6 +24,7 @@ const state = {
   speed: readNumber("sokudoku:speed", DEFAULT_SPEED, 100, 1200),
   groupSize: readNumber("sokudoku:group-size", DEFAULT_GROUP_SIZE, 1, 5),
   pauseAtPunctuation: readBoolean("sokudoku:punctuation", true),
+  showRuby: readBoolean("sokudoku:ruby", true),
   playing: false,
   timer: null,
   loading: false,
@@ -78,6 +79,7 @@ const els = {
   groupSlider: document.getElementById("groupSlider"),
   groupValue: document.getElementById("groupValue"),
   punctuationToggle: document.getElementById("punctuationToggle"),
+  rubyToggle: document.getElementById("rubyToggle"),
   themeButton: document.getElementById("themeButton"),
   fullscreenButton: document.getElementById("fullscreenButton"),
   loadingState: document.getElementById("loadingState"),
@@ -303,7 +305,10 @@ function storageSet(key, value) {
 }
 
 function readNumber(key, fallback, min, max) {
-  const value = Number(storageGet(key));
+  const stored = storageGet(key);
+  if (stored === null || stored === "") return fallback;
+
+  const value = Number(stored);
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
@@ -339,8 +344,6 @@ function cleanAozoraText(rawText) {
 
   return lines.join("\n")
     .replace(/※?［＃[^］]*］/g, "")
-    .replace(/｜/g, "")
-    .replace(/《[^》]*》/g, "")
     .replace(/[ \t]+/g, " ")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -348,16 +351,55 @@ function cleanAozoraText(rawText) {
 }
 
 function segmentText(text) {
-  if (typeof Intl !== "undefined" && Intl.Segmenter) {
-    return segmentWithIntl(text);
+  const tokens = [];
+  const pending = { prefix: "" };
+  const rubyPattern = /｜([^《\n]+)《([^》\n]+)》|([一-龠々〆ヵヶ]+)《([^》\n]+)》/g;
+  let cursor = 0;
+  let match;
+
+  while ((match = rubyPattern.exec(text)) !== null) {
+    appendPlainSegment(text.slice(cursor, match.index), tokens, pending);
+
+    const base = match[1] || match[3] || "";
+    const reading = match[2] || match[4] || "";
+
+    if (base) {
+      tokens.push({
+        text: pending.prefix + base,
+        ruby: reading,
+        rubyBase: base,
+        rubyPrefix: pending.prefix,
+        lineBreak: false
+      });
+      pending.prefix = "";
+    }
+
+    cursor = rubyPattern.lastIndex;
   }
-  return fallbackSegment(text);
+
+  appendPlainSegment(text.slice(cursor), tokens, pending);
+
+  if (pending.prefix && tokens.length) {
+    tokens[tokens.length - 1].text += pending.prefix;
+  }
+
+  return tokens.filter(function (token) {
+    return token.text.trim().length > 0;
+  });
 }
 
-function segmentWithIntl(text) {
+function appendPlainSegment(text, tokens, pending) {
+  if (!text) return;
+
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    appendPlainSegmentWithIntl(text, tokens, pending);
+  } else {
+    appendPlainSegmentFallback(text, tokens, pending);
+  }
+}
+
+function appendPlainSegmentWithIntl(text, tokens, pending) {
   const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-  const tokens = [];
-  let prefix = "";
 
   for (const part of segmenter.segment(text)) {
     const value = part.segment;
@@ -370,36 +412,58 @@ function segmentWithIntl(text) {
     }
 
     if (part.isWordLike) {
-      tokens.push({ text: prefix + value, lineBreak: false });
-      prefix = "";
+      tokens.push({
+        text: pending.prefix + value,
+        ruby: "",
+        rubyBase: "",
+        rubyPrefix: "",
+        lineBreak: false
+      });
+      pending.prefix = "";
       continue;
     }
 
-    if (/^[「『（【〈《〔［｛“‘]/.test(value)) {
-      prefix += value;
+    if (/^[「『（【〈〔［｛“‘]+$/.test(value)) {
+      pending.prefix += value;
     } else if (tokens.length) {
       tokens[tokens.length - 1].text += value;
     } else {
-      prefix += value;
+      pending.prefix += value;
     }
   }
-
-  if (prefix && tokens.length) {
-    tokens[tokens.length - 1].text += prefix;
-  }
-
-  return tokens.filter(function (token) {
-    return token.text.trim().length > 0;
-  });
 }
 
-function fallbackSegment(text) {
+function appendPlainSegmentFallback(text, tokens, pending) {
   const parts = text
     .split(/(\s+|[、。！？!?「」『』（）【】])/)
-    .filter(function (part) { return part && !/^\s+$/.test(part); });
+    .filter(Boolean);
 
-  return parts.map(function (part) {
-    return { text: part, lineBreak: false };
+  parts.forEach(function (part) {
+    if (/^\s+$/.test(part)) {
+      if (part.includes("\n") && tokens.length) {
+        tokens[tokens.length - 1].lineBreak = true;
+      }
+      return;
+    }
+
+    if (/^[「『（【〈〔［｛“‘]+$/.test(part)) {
+      pending.prefix += part;
+      return;
+    }
+
+    if (/^[、。！？!?」』）】〉〕］｝”’]+$/.test(part) && tokens.length) {
+      tokens[tokens.length - 1].text += part;
+      return;
+    }
+
+    tokens.push({
+      text: pending.prefix + part,
+      ruby: "",
+      rubyBase: "",
+      rubyPrefix: "",
+      lineBreak: false
+    });
+    pending.prefix = "";
   });
 }
 
@@ -755,6 +819,69 @@ function updateBookMeta() {
     : "本文データ ↗";
 }
 
+function appendDisplayTokens(container, tokens) {
+  container.replaceChildren();
+
+  if (!tokens.length) {
+    container.textContent = "—";
+    return;
+  }
+
+  let previousText = "";
+
+  tokens.forEach(function (token) {
+    const value = token.text;
+    const needsSpace = previousText &&
+      /[A-Za-z0-9]$/.test(previousText) &&
+      /^[A-Za-z0-9]/.test(value);
+
+    if (needsSpace) {
+      container.append(document.createTextNode(" "));
+    }
+
+    if (state.showRuby && token.ruby && token.rubyBase) {
+      const prefix = token.rubyPrefix || "";
+      const base = token.rubyBase;
+      const suffix = value.slice(prefix.length + base.length);
+
+      if (prefix) {
+        container.append(document.createTextNode(prefix));
+      }
+
+      const ruby = document.createElement("ruby");
+      ruby.append(document.createTextNode(base));
+
+      const rt = document.createElement("rt");
+      rt.textContent = token.ruby;
+      ruby.append(rt);
+      container.append(ruby);
+
+      if (suffix) {
+        container.append(document.createTextNode(suffix));
+      }
+    } else {
+      container.append(document.createTextNode(value));
+    }
+
+    previousText = value;
+  });
+}
+
+function fitCurrentWordToOneLine() {
+  window.requestAnimationFrame(function () {
+    els.currentWord.style.fontSize = "";
+
+    const available = els.currentWord.clientWidth;
+    const needed = els.currentWord.scrollWidth;
+
+    if (!available || needed <= available) return;
+
+    const baseSize = parseFloat(window.getComputedStyle(els.currentWord).fontSize);
+    const fitted = Math.max(22, Math.floor(baseSize * (available / needed) * 0.96));
+    els.currentWord.style.fontSize = fitted + "px";
+  });
+}
+
 function renderReader() {
   const total = state.tokens.length;
 
@@ -772,9 +899,10 @@ function renderReader() {
   const previousStart = Math.max(0, state.index - state.groupSize);
   const nextStart = state.index + state.groupSize;
 
-  els.currentWord.textContent = joinTokens(group);
+  appendDisplayTokens(els.currentWord, group);
   els.previousWord.textContent = joinTokens(state.tokens.slice(previousStart, state.index));
   els.nextWord.textContent = joinTokens(state.tokens.slice(nextStart, nextStart + state.groupSize));
+  fitCurrentWordToOneLine();
 
   updateProgressMeta();
 }
@@ -1062,6 +1190,12 @@ els.punctuationToggle.addEventListener("change", function () {
   if (state.playing) scheduleNext();
 });
 
+els.rubyToggle.addEventListener("change", function () {
+  state.showRuby = els.rubyToggle.checked;
+  storageSet("sokudoku:ruby", state.showRuby);
+  renderReader();
+});
+
 els.progressSlider.addEventListener("input", function () {
   seekFromSlider(els.progressSlider.value);
 });
@@ -1129,6 +1263,7 @@ els.timePickerSpeed.textContent = String(state.speed);
 els.groupSlider.value = String(state.groupSize);
 els.groupValue.textContent = String(state.groupSize);
 els.punctuationToggle.checked = state.pauseAtPunctuation;
+els.rubyToggle.checked = state.showRuby;
 
 async function initializeLibrary() {
   await loadCatalog();
