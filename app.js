@@ -5,13 +5,13 @@ const DEFAULT_SPEED = 450;
 const DEFAULT_GROUP_SIZE = 2;
 
 const FALLBACK_BOOKS = [
-  { id: "meros", title: "走れメロス", author: "太宰治", file: "走れメロス.txt", path: "作品/太宰治/走れメロス.txt" },
-  { id: "ningen", title: "人間失格", author: "太宰治", file: "人間失格.txt", path: "作品/太宰治/人間失格.txt" },
-  { id: "shayo", title: "斜陽", author: "太宰治", file: "斜陽.txt", path: "作品/太宰治/斜陽.txt" },
-  { id: "kokoro", title: "こころ", author: "夏目漱石", file: "こころ.txt", path: "作品/夏目漱石/こころ.txt" },
-  { id: "botchan", title: "坊っちゃん", author: "夏目漱石", file: "坊っちゃん.txt", path: "作品/夏目漱石/坊っちゃん.txt" },
-  { id: "neko", title: "吾輩は猫である", author: "夏目漱石", file: "吾輩は猫である.txt", path: "作品/夏目漱石/吾輩は猫である.txt" },
-  { id: "goshu", title: "セロ弾きのゴーシュ", author: "宮沢賢治", file: "セロ弾きのゴーシュ.txt", path: "作品/宮沢賢治/セロ弾きのゴーシュ.txt" }
+  { id: "meros", title: "走れメロス", author: "太宰治", file: "走れメロス.txt", path: "作品/太宰治/走れメロス.txt", rights: "public-domain" },
+  { id: "ningen", title: "人間失格", author: "太宰治", file: "人間失格.txt", path: "作品/太宰治/人間失格.txt", rights: "public-domain" },
+  { id: "shayo", title: "斜陽", author: "太宰治", file: "斜陽.txt", path: "作品/太宰治/斜陽.txt", rights: "public-domain" },
+  { id: "kokoro", title: "こころ", author: "夏目漱石", file: "こころ.txt", path: "作品/夏目漱石/こころ.txt", rights: "public-domain" },
+  { id: "botchan", title: "坊っちゃん", author: "夏目漱石", file: "坊っちゃん.txt", path: "作品/夏目漱石/坊っちゃん.txt", rights: "public-domain" },
+  { id: "neko", title: "吾輩は猫である", author: "夏目漱石", file: "吾輩は猫である.txt", path: "作品/夏目漱石/吾輩は猫である.txt", rights: "public-domain" },
+  { id: "goshu", title: "セロ弾きのゴーシュ", author: "宮沢賢治", file: "セロ弾きのゴーシュ.txt", path: "作品/宮沢賢治/セロ弾きのゴーシュ.txt", rights: "public-domain" }
 ];
 
 let BOOKS = FALLBACK_BOOKS.slice();
@@ -252,15 +252,21 @@ async function loadCatalog() {
     if (!response.ok) throw new Error("HTTP " + response.status);
 
     const payload = await response.json();
-    const books = Array.isArray(payload) ? payload : payload.books;
+    const books = payload && Array.isArray(payload.books) ? payload.books : null;
 
-    if (!Array.isArray(books) || books.length < 1000) {
-      throw new Error("作品一覧が不完全です");
+    if (
+      !payload ||
+      payload.rightsPolicy !== "public-domain-only" ||
+      !Array.isArray(books) ||
+      books.length < 1 ||
+      books.some(function (book) { return book.rights !== "public-domain"; })
+    ) {
+      throw new Error("著作権確認済みの作品一覧ではありません");
     }
 
     BOOKS = books;
   } catch (error) {
-    console.warn("Full catalog unavailable. Using fallback books.", error);
+    console.warn("Rights-verified catalog unavailable. Using safe fallback books.", error);
     BOOKS = FALLBACK_BOOKS.slice();
   }
 }
@@ -707,7 +713,10 @@ function updateBookMeta() {
   if (!state.activeBook) return;
   els.currentAuthor.textContent = state.activeBook.author;
   els.currentTitle.textContent = state.activeBook.title;
-  els.sourceLink.href = bookUrl(state.activeBook);
+  els.sourceLink.href = state.activeBook.cardUrl || bookUrl(state.activeBook);
+  els.sourceLink.textContent = state.activeBook.cardUrl
+    ? "青空文庫の図書カード ↗"
+    : "本文データ ↗";
 }
 
 function renderReader() {
