@@ -1,0 +1,19 @@
+{
+  "name": "速読文庫",
+  "short_name": "速読文庫",
+  "description": "青空文庫の著作権切れ作品を、空き時間から選んで読める無料の速読Webアプリ。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#f4efe6",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
