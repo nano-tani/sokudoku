@@ -518,6 +518,9 @@ function shouldEndPhrase(tokens, start, end, visibleChars) {
   const text = token.text.replace(/[」』）】、，,；;：:。！？!?]+$/g, "");
   if (isBoundaryParticle(text) && end - start >= 2) return true;
 
+  // 「日本の｜文学」のような連体修飾は「の」で切らない。
+  if (/^(?:の|な)$/.test(text)) return false;
+
   const config = phraseConfig();
   if (visibleChars < config.maxChars) return false;
 
