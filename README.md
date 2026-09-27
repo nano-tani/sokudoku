@@ -81,6 +81,27 @@ python -m http.server 8000
 そのため、GitHub Actionsや `scripts/build_catalog.py` をFTP先で実行する必要はありません。
 ローカル・リモートのカタログが両方利用できない場合だけ、コード内の安全な7作品へ縮退します。
 
+
+### matome.but.jp 配下に置く場合
+
+例として `https://matome.but.jp/sokudoku/` で公開する場合は、
+`/sokudoku/` ディレクトリ直下へサイト一式をアップロードしてください。
+
+```text
+/sokudoku/
+├─ index.html
+├─ styles.css
+├─ app.js
+├─ .htaccess
+└─ books.json  # 任意
+```
+
+`.htaccess` はこのサブディレクトリにだけ置く前提です。
+`matome.but.jp` 直下へ置くと、同ドメインの他コンテンツにも設定が影響するため避けてください。
+
+FTPソフトによってはドットで始まる `.htaccess` が非表示になることがあります。
+アップロード後、サーバー側に `.htaccess` が存在することを確認してください。
+
 ### 自前サーバーへ完全にコピーしたい場合
 
 外部のカタログ取得にも依存したくない場合は、GitHub Pagesで生成済みの `books.json` も
