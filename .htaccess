@@ -1,0 +1,59 @@
+# 速読文庫 - Lolipop / Apache / LiteSpeed
+# この .htaccess を速読文庫を置くサブディレクトリ直下に配置してください。
+# 例: https://matome.but.jp/sokudoku/ → /sokudoku/.htaccess
+#
+# 親ディレクトリや matome.but.jp 全体には置かないでください。
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # HTTPSへ統一（サブディレクトリでも現在のURLをそのまま維持）
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # MIME sniffingを禁止
+  Header always set X-Content-Type-Options "nosniff"
+
+  # 他サイトからiframe埋め込み禁止
+  Header always set X-Frame-Options "DENY"
+
+  # 送信するReferer情報を最小化
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # この静的サイトで不要なブラウザ機能を無効化
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+
+  # HTTPS運用時のみ有効。サブドメイン全体には波及させない。
+  Header always set Strict-Transport-Security "max-age=31536000"
+
+  # 読書アプリが必要とする通信先のみ許可。
+  # - self: index.html / app.js / styles.css / local books.json
+  # - raw.githubusercontent.com: 青空文庫本文ミラー
+  # - nano-tani.github.io: FTP先にbooks.jsonが無い場合の権利確認済みカタログ
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://raw.githubusercontent.com https://nano-tani.github.io; upgrade-insecure-requests"
+</IfModule>
+
+# Apache/LiteSpeed側で既知の型を明示
+<IfModule mod_mime.c>
+  AddType text/javascript .js
+  AddType application/json .json
+</IfModule>
+
+# 隠しファイルや開発用ファイルをWebから見せない
+<FilesMatch "(^\.|(?:^|/)(?:README(?:\.md)?|package(?:-lock)?\.json|pyproject\.toml|requirements.*\.txt)$)">
+  Require all denied
+</FilesMatch>
+
+# キャッシュ
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 5 minutes"
+  ExpiresByType text/css "access plus 1 day"
+  ExpiresByType text/javascript "access plus 1 day"
+  ExpiresByType application/json "access plus 30 minutes"
+</IfModule>
