@@ -20,9 +20,10 @@ let BOOKS = FALLBACK_BOOKS.slice();
 const state = {
   activeBook: null,
   tokens: [],
+  displayGroups: [],
   index: 0,
   speed: readNumber("sokudoku:speed", DEFAULT_SPEED, 100, 1200),
-  groupSize: readNumber("sokudoku:group-size", DEFAULT_GROUP_SIZE, 1, 5),
+  groupSize: readNumber("sokudoku:group-size", DEFAULT_GROUP_SIZE, 1, 3),
   pauseAtPunctuation: readBoolean("sokudoku:punctuation", true),
   showRuby: readBoolean("sokudoku:ruby", true),
   playing: false,
@@ -481,8 +482,119 @@ function joinTokens(tokens) {
   return output;
 }
 
+function phraseConfig() {
+  const configs = {
+    1: { maxChars: 7 },
+    2: { maxChars: 12 },
+    3: { maxChars: 18 }
+  };
+  return configs[state.groupSize] || configs[DEFAULT_GROUP_SIZE];
+}
+
+function tokenVisibleLength(token) {
+  return Array.from((token && token.text) || "").length;
+}
+
+function isHardPhraseEnd(token) {
+  if (!token) return false;
+  return token.lineBreak || /[。！？!?」』）】]$/.test(token.text);
+}
+
+function isSoftPhraseEnd(token) {
+  if (!token) return false;
+  return /[、，,；;：:]$/.test(token.text);
+}
+
+function isBoundaryParticle(text) {
+  return /^(?:は|が|を|に|へ|で|と|も|から|まで|より|ば|なら|ので|のに|けど|けれど|って|ては|では)$/.test(text);
+}
+
+function shouldEndPhrase(tokens, start, end, visibleChars) {
+  const token = tokens[end - 1];
+  if (!token) return true;
+
+  if (isHardPhraseEnd(token) || isSoftPhraseEnd(token)) return true;
+
+  const text = token.text.replace(/[」』）】、，,；;：:。！？!?]+$/g, "");
+  if (isBoundaryParticle(text) && end - start >= 2) return true;
+
+  const config = phraseConfig();
+  if (visibleChars < config.maxChars) return false;
+
+  const next = tokens[end];
+  if (!next) return true;
+
+  const nextText = next.text.replace(/[「『（【〈〔［｛“‘]/g, "");
+  const mustAttach =
+    /^(?:の|な|た|だ|です|ます|ない|ぬ|ん|たい|れる|られる|せる|させる)$/.test(nextText) ||
+    /^[、，,；;：:。！？!?」』）】]/.test(nextText);
+
+  return !mustAttach;
+}
+
+function rebuildDisplayGroups() {
+  const groups = [];
+  const tokens = state.tokens;
+  let start = 0;
+
+  while (start < tokens.length) {
+    let end = start;
+    let visibleChars = 0;
+
+    while (end < tokens.length) {
+      visibleChars += tokenVisibleLength(tokens[end]);
+      end += 1;
+
+      if (shouldEndPhrase(tokens, start, end, visibleChars)) break;
+    }
+
+    if (end <= start) end = start + 1;
+    groups.push({ start: start, end: Math.min(end, tokens.length) });
+    start = end;
+  }
+
+  state.displayGroups = groups;
+}
+
+function displayGroupIndexForToken(tokenIndex) {
+  const groups = state.displayGroups;
+  if (!groups.length) return -1;
+
+  let low = 0;
+  let high = groups.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const group = groups[mid];
+
+    if (tokenIndex < group.start) {
+      high = mid - 1;
+    } else if (tokenIndex >= group.end) {
+      low = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+
+  return Math.max(0, Math.min(groups.length - 1, low));
+}
+
+function snapIndexToPhrase(tokenIndex) {
+  const groupIndex = displayGroupIndexForToken(tokenIndex);
+  if (groupIndex < 0) return 0;
+  return state.displayGroups[groupIndex].start;
+}
+
+function currentDisplayGroup() {
+  const groupIndex = displayGroupIndexForToken(state.index);
+  if (groupIndex < 0) return null;
+  return state.displayGroups[groupIndex];
+}
+
 function currentGroup() {
-  return state.tokens.slice(state.index, state.index + state.groupSize);
+  const group = currentDisplayGroup();
+  if (!group) return [];
+  return state.tokens.slice(group.start, group.end);
 }
 
 function estimateWords(book) {
@@ -743,6 +855,7 @@ async function loadBook(bookId, restoreProgress) {
   state.loading = true;
   state.activeBook = book;
   state.tokens = [];
+  state.displayGroups = [];
   state.index = 0;
   state.readElapsedMs = Math.max(
     0,
@@ -770,10 +883,11 @@ async function loadBook(bookId, restoreProgress) {
     }
 
     state.tokens = tokens;
+    rebuildDisplayGroups();
 
     if (restoreProgress) {
       const saved = readNumber("sokudoku:progress:" + book.id, 0, 0, Math.max(0, tokens.length - 1));
-      state.index = Math.min(saved, Math.max(0, tokens.length - 1));
+      state.index = snapIndexToPhrase(Math.min(saved, Math.max(0, tokens.length - 1)));
     }
 
     storageSet("sokudoku:last-book", book.id);
@@ -895,13 +1009,25 @@ function renderReader() {
 
   state.index = Math.min(Math.max(0, state.index), total - 1);
 
-  const group = currentGroup();
-  const previousStart = Math.max(0, state.index - state.groupSize);
-  const nextStart = state.index + state.groupSize;
+  const groupIndex = displayGroupIndexForToken(state.index);
+  const currentInfo = groupIndex >= 0 ? state.displayGroups[groupIndex] : null;
+  const previousInfo = groupIndex > 0 ? state.displayGroups[groupIndex - 1] : null;
+  const nextInfo = groupIndex >= 0 && groupIndex < state.displayGroups.length - 1
+    ? state.displayGroups[groupIndex + 1]
+    : null;
+  const group = currentInfo
+    ? state.tokens.slice(currentInfo.start, currentInfo.end)
+    : [];
+
+  state.index = currentInfo ? currentInfo.start : state.index;
 
   appendDisplayTokens(els.currentWord, group);
-  els.previousWord.textContent = joinTokens(state.tokens.slice(previousStart, state.index));
-  els.nextWord.textContent = joinTokens(state.tokens.slice(nextStart, nextStart + state.groupSize));
+  els.previousWord.textContent = previousInfo
+    ? joinTokens(state.tokens.slice(previousInfo.start, previousInfo.end))
+    : "";
+  els.nextWord.textContent = nextInfo
+    ? joinTokens(state.tokens.slice(nextInfo.start, nextInfo.end))
+    : "";
   fitCurrentWordToOneLine();
 
   updateProgressMeta();
@@ -909,8 +1035,8 @@ function renderReader() {
 
 function updateProgressMeta() {
   const total = state.tokens.length;
-  const groupLength = currentGroup().length;
-  const readPosition = total ? Math.min(total, state.index + groupLength) : 0;
+  const currentInfo = currentDisplayGroup();
+  const readPosition = total && currentInfo ? currentInfo.end : 0;
   const ratio = total > 1 ? state.index / (total - 1) : 0;
   const percent = Math.round(ratio * 100);
   const remainingWords = Math.max(0, total - readPosition);
@@ -951,14 +1077,15 @@ function scheduleNext() {
   if (!state.playing || !state.tokens.length) return;
 
   state.timer = window.setTimeout(function () {
-    const nextIndex = state.index + state.groupSize;
+    const groupIndex = displayGroupIndexForToken(state.index);
+    const nextGroup = groupIndex >= 0 ? state.displayGroups[groupIndex + 1] : null;
 
-    if (nextIndex >= state.tokens.length) {
+    if (!nextGroup) {
       showCompletionScreen();
       return;
     }
 
-    state.index = nextIndex;
+    state.index = nextGroup.start;
     renderReader();
     saveProgress();
     scheduleNext();
@@ -1008,18 +1135,20 @@ function togglePlayback() {
 }
 
 function moveByGroups(amount) {
-  if (!state.tokens.length) return;
-  state.index = Math.min(
-    state.tokens.length - 1,
-    Math.max(0, state.index + amount * state.groupSize)
-  );
-  renderReader();
-  saveProgress();
+  if (!state.tokens.length || !state.displayGroups.length) return;
 
-  if (amount > 0 && state.index >= state.tokens.length - 1) {
-    showCompletionScreen();
+  const current = displayGroupIndexForToken(state.index);
+  const target = current + amount;
+
+  if (target >= state.displayGroups.length) {
+    if (amount > 0) showCompletionScreen();
     return;
   }
+
+  const clamped = Math.max(0, target);
+  state.index = state.displayGroups[clamped].start;
+  renderReader();
+  saveProgress();
 
   if (state.playing) scheduleNext();
 }
@@ -1037,12 +1166,22 @@ function setSpeed(speed) {
   if (state.playing) scheduleNext();
 }
 
+function groupSizeLabel(size) {
+  return ({ 1: "短め", 2: "標準", 3: "長め" })[size] || "標準";
+}
+
 function setGroupSize(size) {
-  state.groupSize = Math.min(5, Math.max(1, size));
+  state.groupSize = Math.min(3, Math.max(1, size));
   els.groupSlider.value = String(state.groupSize);
-  els.groupValue.textContent = String(state.groupSize);
+  els.groupValue.textContent = groupSizeLabel(state.groupSize);
   storageSet("sokudoku:group-size", state.groupSize);
-  renderReader();
+
+  if (state.tokens.length) {
+    const currentToken = state.index;
+    rebuildDisplayGroups();
+    state.index = snapIndexToPhrase(currentToken);
+    renderReader();
+  }
 
   if (state.playing) scheduleNext();
 }
@@ -1060,7 +1199,9 @@ function seekFromSlider(value) {
   if (!state.tokens.length) return;
   const ratio = Number(value) / 1000;
   const rawIndex = Math.round(ratio * (state.tokens.length - 1));
-  state.index = Math.max(0, Math.min(state.tokens.length - 1, rawIndex));
+  state.index = snapIndexToPhrase(
+    Math.max(0, Math.min(state.tokens.length - 1, rawIndex))
+  );
   renderReader();
   saveProgress();
 
@@ -1261,7 +1402,7 @@ els.speedSlider.value = String(state.speed);
 els.speedValue.textContent = String(state.speed);
 els.timePickerSpeed.textContent = String(state.speed);
 els.groupSlider.value = String(state.groupSize);
-els.groupValue.textContent = String(state.groupSize);
+els.groupValue.textContent = groupSizeLabel(state.groupSize);
 els.punctuationToggle.checked = state.pauseAtPunctuation;
 els.rubyToggle.checked = state.showRuby;
 
