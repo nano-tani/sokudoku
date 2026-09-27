@@ -141,6 +141,11 @@ a { color: inherit; }
   justify-content: space-between;
 }
 
+.toggle-row + .toggle-row {
+  margin-top: 8px;
+}
+
+
 .panel-heading h1,
 .book-meta h2 { margin: 0; font-family: var(--font-serif); }
 
@@ -782,15 +787,35 @@ body.reading-mode .site-footer {
 }
 
 .focus-word {
+  width: 100%;
   min-width: 0;
+  padding: .48em 0 .08em;
+  overflow: hidden;
   font-family: var(--font-serif);
   font-weight: 700;
   font-size: clamp(44px, 7.5vw, 108px);
-  line-height: 1.15;
+  line-height: 1.08;
   text-align: center;
   letter-spacing: .025em;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  text-wrap: nowrap;
+  text-overflow: clip;
+}
+
+.focus-word ruby {
+  ruby-position: over;
+  ruby-align: center;
+}
+
+.focus-word rt {
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: .32em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-align: center;
 }
 
 .context-word {
