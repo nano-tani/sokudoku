@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="速読文庫">
+  <rect width="512" height="512" rx="128" fill="#1d1b18"/>
+  <text x="256" y="340" text-anchor="middle" font-size="300" font-weight="700"
+        font-family="Hiragino Mincho ProN, Yu Mincho, serif" fill="#fffdf9">速</text>
+  <circle cx="400" cy="112" r="44" fill="#be3d2f"/>
+</svg>
