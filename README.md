@@ -92,6 +92,9 @@ python -m http.server 8000
 ├─ index.html
 ├─ styles.css
 ├─ app.js
+├─ favicon.svg
+├─ site.webmanifest
+├─ sitemap.xml
 ├─ .htaccess
 └─ books.json  # 任意
 ```
@@ -142,3 +145,39 @@ GitHub Pages が未設定の場合は、一度だけリポジトリの
 
 ブラウザ側も `rightsPolicy` と各作品の `rights` を検証し、
 未検証の古いカタログや不正なカタログは読み込みません。
+
+
+## SEO・公開URL
+
+本番URLは次で固定しています。
+
+`https://matome.but.jp/sokudoku/`
+
+`index.html` には以下を設定済みです。
+
+- canonical URL
+- description / robots
+- OGP / X(Twitter) metadata
+- 日本語 hreflang
+- WebApplication の構造化マークアップ
+- favicon / Web App Manifest
+- sitemap 参照
+
+`sitemap.xml` は
+`https://matome.but.jp/sokudoku/sitemap.xml`
+として公開します。
+
+### robots.txt について
+
+robots.txt はサブディレクトリではなく、必ずドメイン直下
+`https://matome.but.jp/robots.txt`
+に置く必要があります。そのため、このリポジトリから
+`/sokudoku/robots.txt` を配布しても検索エンジンには有効ではありません。
+
+matome.but.jp 全体の既存 robots.txt を確認したうえで追記できる場合は、次の1行だけ追加してください。
+
+```text
+Sitemap: https://matome.but.jp/sokudoku/sitemap.xml
+```
+
+既存の他コンテンツ用ルールは削除しないでください。
